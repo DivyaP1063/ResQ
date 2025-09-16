@@ -14,6 +14,7 @@ interface WebSocketContextType {
   alerts: EmergencyAlert[];
   sendEmergencyAlert: (message: string, confidence: number) => void;
   clearAlerts: () => void;
+  connectionStatus: 'connecting' | 'connected' | 'disconnected' | 'failed';
 }
 
 const WebSocketContext = createContext<WebSocketContextType | null>(null);
@@ -21,6 +22,7 @@ const WebSocketContext = createContext<WebSocketContextType | null>(null);
 export function WebSocketProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [isConnected, setIsConnected] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'failed'>('disconnected');
   const [alerts, setAlerts] = useState<EmergencyAlert[]>([]);
   const [reconnectAttempts, setReconnectAttempts] = useState(0);
   const maxReconnectAttempts = APP_CONFIG.WEBSOCKET_RECONNECT_ATTEMPTS;
@@ -33,17 +35,32 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     const wsUrl = API_CONFIG.WS_BASE_URL;
     
     const connectWebSocket = () => {
-      wsRef.current = new WebSocket(wsUrl);
+      console.log('Attempting to connect to WebSocket:', wsUrl);
+      setConnectionStatus('connecting');
+      
+      try {
+        wsRef.current = new WebSocket(wsUrl);
+      } catch (error) {
+        console.error('Failed to create WebSocket connection:', error);
+        setConnectionStatus('failed');
+        return;
+      }
 
       wsRef.current.onopen = () => {
+        console.log('WebSocket connected successfully');
         setIsConnected(true);
+        setConnectionStatus('connected');
         setReconnectAttempts(0); // Reset attempts on successful connection
         
-        // Authenticate with the WebSocket server
-        wsRef.current?.send(JSON.stringify({
-          type: 'auth',
-          userId: user._id
-        }));
+        // Wait a moment before sending auth message to ensure connection is fully established
+        setTimeout(() => {
+          if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+            wsRef.current.send(JSON.stringify({
+              type: 'auth',
+              userId: user._id
+            }));
+          }
+        }, 100);
       };
 
       wsRef.current.onmessage = (event) => {
@@ -63,19 +80,26 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
         }
       };
 
-      wsRef.current.onclose = () => {
+      wsRef.current.onclose = (event) => {
+        console.log('WebSocket connection closed:', event.code, event.reason);
         setIsConnected(false);
+        setConnectionStatus('disconnected');
         
-        // Only attempt to reconnect if we haven't exceeded max attempts
-        if (reconnectAttempts < maxReconnectAttempts) {
+        // Only attempt to reconnect if we haven't exceeded max attempts and it wasn't a normal closure
+        if (reconnectAttempts < maxReconnectAttempts && event.code !== 1000) {
           setReconnectAttempts(prev => prev + 1);
           const delay = Math.min(APP_CONFIG.WEBSOCKET_RECONNECT_DELAY * Math.pow(2, reconnectAttempts), 10000); // Exponential backoff
+          console.log(`Attempting to reconnect in ${delay}ms (attempt ${reconnectAttempts + 1}/${maxReconnectAttempts})`);
           setTimeout(connectWebSocket, delay);
+        } else if (reconnectAttempts >= maxReconnectAttempts) {
+          setConnectionStatus('failed');
         }
       };
 
-      wsRef.current.onerror = () => {
+      wsRef.current.onerror = (error) => {
+        console.error('WebSocket error:', error);
         setIsConnected(false);
+        setConnectionStatus('failed');
       };
     };
 
@@ -90,12 +114,16 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
 
   const sendEmergencyAlert = (message: string, confidence: number) => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      console.log('Sending emergency alert via WebSocket');
       wsRef.current.send(JSON.stringify({
         type: 'emergency_detected',
         userId: user?._id,
         message,
         confidence
       }));
+    } else {
+      console.warn('WebSocket not connected, cannot send emergency alert. ReadyState:', wsRef.current?.readyState);
+      // Could implement a queue here to send when reconnected
     }
   };
 
@@ -107,7 +135,8 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     isConnected,
     alerts,
     sendEmergencyAlert,
-    clearAlerts
+    clearAlerts,
+    connectionStatus
   };
 
   return (

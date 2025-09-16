@@ -115,7 +115,7 @@ router.put('/profile', authenticateToken, async (req, res) => {
       { firstName, lastName, emergencyContact },
       { new: true, runValidators: true }
     );
-
+    
     res.json({
       message: 'Profile updated successfully',
       user
