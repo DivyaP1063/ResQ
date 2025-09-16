@@ -3,9 +3,9 @@ class AppConstants {
   static const String appVersion = '1.0.0';
   
   // API Configuration
-  static const String baseUrl = 'http://10.0.2.2:5000/api'; // Android emulator
+  static const String baseUrl = 'https://resq-qbiz.onrender.com/api'; // Android emulator
   // For physical device, use: 'http://YOUR_LOCAL_IP:5000/api'
-  static const String wsUrl = 'ws://10.0.2.2:5000'; // WebSocket URL
+  static const String wsUrl = 'wss://resq-qbiz.onrender.com'; // WebSocket URL
   
   // Endpoints
   static const String loginEndpoint = '/auth/login';

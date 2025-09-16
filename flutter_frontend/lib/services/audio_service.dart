@@ -2,6 +2,7 @@ import 'package:record/record.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
+import 'api_service.dart';
 
 class AudioService {
   static final AudioService _instance = AudioService._internal();
@@ -40,11 +41,11 @@ class AudioService {
       }
 
       final directory = await getApplicationDocumentsDirectory();
-      final fileName = 'recording_${DateTime.now().millisecondsSinceEpoch}.wav';
+      final fileName = 'recording_${DateTime.now().millisecondsSinceEpoch}.m4a';
       final filePath = '${directory.path}/$fileName';
 
       const config = RecordConfig(
-        encoder: AudioEncoder.wav,
+        encoder: AudioEncoder.aacLc,
         sampleRate: 44100,
         bitRate: 128000,
         numChannels: 1,
@@ -62,21 +63,44 @@ class AudioService {
     }
   }
 
-  Future<String?> stopRecording() async {
+  Future<Map<String, dynamic>?> stopRecording() async {
     try {
       if (!_isRecording) return null;
 
-      final path = await _recorder.stop();
+      await _recorder.stop();
       _isRecording = false;
-      
+
       final recordingPath = _currentRecordingPath;
       _currentRecordingPath = null;
-      
-      return recordingPath ?? path;
+
+      // Auto-upload to backend for emergency analysis
+      if (recordingPath != null) {
+        return await _uploadRecording(recordingPath);
+      }
+
+      return null;
     } catch (e) {
       _isRecording = false;
       _currentRecordingPath = null;
       rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>?> _uploadRecording(String filePath) async {
+    try {
+      final file = File(filePath);
+      if (!await file.exists()) return null;
+
+      final fileName = filePath.split('/').last;
+      final result = await ApiService().uploadRecording(filePath, fileName);
+
+      print('Recording uploaded successfully: ${result['recording']['id']}');
+      print('Emergency detected: ${result['recording']['isEmergency']}');
+
+      return result;
+    } catch (e) {
+      print('Failed to upload recording: $e');
+      return null;
     }
   }
 
@@ -85,7 +109,7 @@ class AudioService {
       if (_isRecording) {
         await _recorder.cancel();
         _isRecording = false;
-        
+
         // Delete the file if it exists
         if (_currentRecordingPath != null) {
           final file = File(_currentRecordingPath!);
@@ -93,7 +117,7 @@ class AudioService {
             await file.delete();
           }
         }
-        
+
         _currentRecordingPath = null;
       }
     } catch (e) {

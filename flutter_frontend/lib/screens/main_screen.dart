@@ -28,12 +28,12 @@ class _MainScreenState extends State<MainScreen> {
   void initState() {
     super.initState();
     _pageController = PageController();
-    
+
     // Initialize WebSocket connection
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final authProvider = context.read<AuthProvider>();
-      if (authProvider.isAuthenticated) {
-        context.read<WebSocketProvider>().connect();
+      if (authProvider.isAuthenticated && authProvider.user != null) {
+        context.read<WebSocketProvider>().connect(authProvider.user!.id);
       }
     });
   }
@@ -71,9 +71,9 @@ class _MainScreenState extends State<MainScreen> {
                 },
                 children: _screens,
               ),
-              
+
               // Emergency Alert Overlay
-              if (wsProvider.lastEmergencyAlert != null)
+              if (wsProvider.emergencyAlerts.isNotEmpty)
                 Positioned(
                   top: MediaQuery.of(context).padding.top + 16,
                   left: 16,
@@ -113,7 +113,8 @@ class _MainScreenState extends State<MainScreen> {
                                 ),
                               ),
                               Text(
-                                wsProvider.lastEmergencyAlert!.description,
+                                wsProvider.emergencyAlerts.last['message'] ??
+                                    'Emergency alert',
                                 style: const TextStyle(
                                   color: Colors.red,
                                   fontSize: 14,
@@ -124,7 +125,7 @@ class _MainScreenState extends State<MainScreen> {
                         ),
                         IconButton(
                           onPressed: () {
-                            wsProvider.clearEmergencyAlert();
+                            wsProvider.clearAlerts();
                           },
                           icon: const Icon(
                             Icons.close,

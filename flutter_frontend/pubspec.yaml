@@ -16,7 +16,7 @@ dependencies:
   dio: ^5.3.2
   
   # Audio Recording
-  record: ^5.0.4
+  record: ^6.0.0
   permission_handler: ^11.0.1
   path_provider: ^2.1.1
   
@@ -51,15 +51,3 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-  
-  assets:
-    - assets/images/
-    - assets/animations/
-    - assets/sounds/
-  
-  fonts:
-    - family: Roboto
-      fonts:
-        - asset: assets/fonts/Roboto-Regular.ttf
-        - asset: assets/fonts/Roboto-Bold.ttf
-          weight: 700

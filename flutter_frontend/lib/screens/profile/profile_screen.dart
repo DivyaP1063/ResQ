@@ -12,13 +12,13 @@ class ProfileScreen extends StatelessWidget {
   Future<void> _handleLogout(BuildContext context) async {
     final authProvider = context.read<AuthProvider>();
     final wsProvider = context.read<WebSocketProvider>();
-    
+
     // Disconnect WebSocket
     wsProvider.disconnect();
-    
+
     // Logout
     await authProvider.logout();
-    
+
     if (context.mounted) {
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => const LoginScreen()),
@@ -60,7 +60,7 @@ class ProfileScreen extends StatelessWidget {
                   ],
                 ),
               ),
-              
+
               // Profile Info Card
               Container(
                 margin: const EdgeInsets.symmetric(horizontal: 20),
@@ -84,9 +84,10 @@ class ProfileScreen extends StatelessWidget {
                         // Avatar
                         CircleAvatar(
                           radius: 50,
-                          backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                          backgroundColor:
+                              AppTheme.primaryColor.withOpacity(0.1),
                           child: Text(
-                            user?.name.substring(0, 1).toUpperCase() ?? 'U',
+                            user?.fullName.substring(0, 1).toUpperCase() ?? 'U',
                             style: const TextStyle(
                               fontSize: 36,
                               fontWeight: FontWeight.bold,
@@ -94,21 +95,21 @@ class ProfileScreen extends StatelessWidget {
                             ),
                           ),
                         ),
-                        
+
                         const SizedBox(height: 16),
-                        
+
                         // Name
                         Text(
-                          user?.name ?? 'User',
+                          user?.fullName ?? 'User',
                           style: const TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
                             color: Colors.black87,
                           ),
                         ),
-                        
+
                         const SizedBox(height: 4),
-                        
+
                         // Email
                         Text(
                           user?.email ?? '',
@@ -117,12 +118,12 @@ class ProfileScreen extends StatelessWidget {
                             color: Colors.grey.shade600,
                           ),
                         ),
-                        
+
                         const SizedBox(height: 4),
-                        
+
                         // Phone
                         Text(
-                          user?.phone ?? '',
+                          user?.emergencyContact?.phone ?? '',
                           style: TextStyle(
                             fontSize: 16,
                             color: Colors.grey.shade600,
@@ -133,9 +134,9 @@ class ProfileScreen extends StatelessWidget {
                   },
                 ),
               ),
-              
+
               const SizedBox(height: 30),
-              
+
               // Statistics Section
               Expanded(
                 child: Container(
@@ -159,17 +160,17 @@ class ProfileScreen extends StatelessWidget {
                             color: Colors.black87,
                           ),
                         ),
-                        
+
                         const SizedBox(height: 20),
-                        
+
                         // Stats Cards
                         Consumer<RecordingProvider>(
                           builder: (context, recordingProvider, child) {
                             final recordings = recordingProvider.recordings;
                             final emergencyCount = recordings
-                                .where((r) => r.emergencyAnalysis?.isEmergency == true)
+                                .where((r) => r.isEmergency == true)
                                 .length;
-                            
+
                             return Column(
                               children: [
                                 _buildStatCard(
@@ -196,9 +197,9 @@ class ProfileScreen extends StatelessWidget {
                             );
                           },
                         ),
-                        
+
                         const Spacer(),
-                        
+
                         // Settings Options
                         _buildMenuItem(
                           'Settings',
@@ -207,7 +208,7 @@ class ProfileScreen extends StatelessWidget {
                             // Navigate to settings
                           },
                         ),
-                        
+
                         _buildMenuItem(
                           'Help & Support',
                           Icons.help_outline,
@@ -215,7 +216,7 @@ class ProfileScreen extends StatelessWidget {
                             // Navigate to help
                           },
                         ),
-                        
+
                         _buildMenuItem(
                           'Privacy Policy',
                           Icons.privacy_tip_outlined,
@@ -223,9 +224,9 @@ class ProfileScreen extends StatelessWidget {
                             // Navigate to privacy policy
                           },
                         ),
-                        
+
                         const SizedBox(height: 20),
-                        
+
                         // Logout Button
                         SizedBox(
                           width: double.infinity,
@@ -268,7 +269,8 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildStatCard(String title, String value, IconData icon, Color color) {
+  Widget _buildStatCard(
+      String title, String value, IconData icon, Color color) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(

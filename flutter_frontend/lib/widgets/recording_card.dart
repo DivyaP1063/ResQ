@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../models/recording.dart';
-import '../utils/theme.dart';
 
 class RecordingCard extends StatelessWidget {
   final Recording recording;
@@ -12,9 +11,9 @@ class RecordingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isEmergency = recording.emergencyAnalysis?.isEmergency ?? false;
-    final confidence = recording.emergencyAnalysis?.confidence ?? 0.0;
-    
+    final isEmergency = recording.isEmergency;
+    final confidence = recording.confidence ?? 0.0;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -32,7 +31,8 @@ class RecordingCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: isEmergency ? Colors.red.shade100 : Colors.blue.shade100,
+                  color:
+                      isEmergency ? Colors.red.shade100 : Colors.blue.shade100,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(
@@ -65,7 +65,8 @@ class RecordingCard extends StatelessWidget {
               ),
               if (isEmergency)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: Colors.red,
                     borderRadius: BorderRadius.circular(12),
@@ -81,7 +82,6 @@ class RecordingCard extends StatelessWidget {
                 ),
             ],
           ),
-          
           if (recording.transcription != null) ...[
             const SizedBox(height: 12),
             Text(
@@ -95,8 +95,7 @@ class RecordingCard extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ],
-          
-          if (recording.emergencyAnalysis != null) ...[
+          if (recording.confidence != null) ...[
             const SizedBox(height: 12),
             Row(
               children: [
@@ -116,11 +115,12 @@ class RecordingCard extends StatelessWidget {
                   ),
                 ),
                 const Spacer(),
-                if (recording.emergencyAnalysis!.description.isNotEmpty)
+                if (recording.emergencyType != null &&
+                    recording.emergencyType!.isNotEmpty)
                   Expanded(
                     flex: 2,
                     child: Text(
-                      recording.emergencyAnalysis!.description,
+                      recording.emergencyType!,
                       style: TextStyle(
                         color: Colors.grey.shade600,
                         fontSize: 12,
@@ -142,7 +142,7 @@ class RecordingCard extends StatelessWidget {
   String _formatDateTime(DateTime dateTime) {
     final now = DateTime.now();
     final difference = now.difference(dateTime);
-    
+
     if (difference.inDays > 0) {
       return '${difference.inDays} day${difference.inDays == 1 ? '' : 's'} ago';
     } else if (difference.inHours > 0) {

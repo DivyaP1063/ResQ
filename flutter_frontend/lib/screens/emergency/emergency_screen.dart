@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../../providers/recording_provider.dart';
 import '../../services/audio_service.dart';
+import '../../services/websocket_service.dart';
 import '../../utils/theme.dart';
 import '../../widgets/audio_visualizer.dart';
 import '../../widgets/recording_controls.dart';
@@ -19,6 +18,7 @@ class _EmergencyScreenState extends State<EmergencyScreen>
   late AnimationController _waveController;
   bool _isRecording = false;
   final AudioService _audioService = AudioService();
+  final WebSocketService _wsService = WebSocketService();
 
   @override
   void initState() {
@@ -31,6 +31,14 @@ class _EmergencyScreenState extends State<EmergencyScreen>
       duration: const Duration(milliseconds: 1500),
       vsync: this,
     );
+
+    // Initialize WebSocket for emergency alerts
+    _initializeWebSocket();
+  }
+
+  void _initializeWebSocket() {
+    // Note: You'll need to get the current user ID from your auth provider
+    // _wsService.connect(currentUserId);
   }
 
   @override
@@ -50,7 +58,7 @@ class _EmergencyScreenState extends State<EmergencyScreen>
 
   Future<void> _startRecording() async {
     try {
-      final hasPermission = await _audioService.requestPermission();
+      final hasPermission = await _audioService.requestPermissions();
       if (!hasPermission) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -65,10 +73,10 @@ class _EmergencyScreenState extends State<EmergencyScreen>
 
       await _audioService.startRecording();
       setState(() => _isRecording = true);
-      
+
       _pulseController.repeat();
       _waveController.repeat();
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -92,22 +100,33 @@ class _EmergencyScreenState extends State<EmergencyScreen>
 
   Future<void> _stopRecording() async {
     try {
-      final filePath = await _audioService.stopRecording();
+      final result = await _audioService.stopRecording();
       setState(() => _isRecording = false);
-      
+
       _pulseController.stop();
       _waveController.stop();
-      
-      if (filePath != null && mounted) {
-        // Upload the recording
-        await context.read<RecordingProvider>().uploadRecording(filePath);
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Recording saved and uploaded!'),
-            backgroundColor: Colors.green,
-          ),
-        );
+
+      if (result != null && mounted) {
+        // Check if emergency was detected
+        final isEmergency = result['recording']?['isEmergency'] ?? false;
+        final transcription = result['recording']?['transcription'] ?? '';
+        final confidence = result['recording']?['confidence'] ?? 0.0;
+        final emergencyType = result['recording']?['emergencyType'] ?? '';
+
+        if (isEmergency) {
+          // Send WebSocket alert for real-time notifications
+          _wsService.sendEmergencyAlert(transcription, confidence);
+
+          // Show emergency alert
+          _showEmergencyAlert(transcription, confidence, emergencyType);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Recording processed - No emergency detected'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -119,6 +138,117 @@ class _EmergencyScreenState extends State<EmergencyScreen>
         );
       }
     }
+  }
+
+  void _showEmergencyAlert(
+      String transcription, double confidence, String emergencyType) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: Colors.red.shade50,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: BorderSide(color: Colors.red, width: 3),
+          ),
+          title: Row(
+            children: [
+              Icon(Icons.warning, color: Colors.red, size: 30),
+              const SizedBox(width: 12),
+              const Text(
+                '🚨 EMERGENCY DETECTED',
+                style: TextStyle(
+                  color: Colors.red,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Detected Speech:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.red.shade300),
+                ),
+                child: Text(
+                  '"$transcription"',
+                  style: const TextStyle(
+                    fontStyle: FontStyle.italic,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Emergency Type:',
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                      Text(emergencyType.toUpperCase(),
+                          style: const TextStyle(color: Colors.red)),
+                    ],
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      const Text('Confidence:',
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                      Text('${(confidence * 100).toStringAsFixed(1)}%',
+                          style: const TextStyle(color: Colors.red)),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info, color: Colors.orange.shade700),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'Emergency alert has been automatically sent to monitoring system.',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                'Acknowledge',
+                style:
+                    TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -151,14 +281,18 @@ class _EmergencyScreenState extends State<EmergencyScreen>
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: _isRecording ? Colors.red : Colors.white.withOpacity(0.2),
+                        color: _isRecording
+                            ? Colors.red
+                            : Colors.white.withOpacity(0.2),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            _isRecording ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                            _isRecording
+                                ? Icons.radio_button_checked
+                                : Icons.radio_button_unchecked,
                             color: _isRecording ? Colors.white : Colors.white70,
                             size: 16,
                           ),
@@ -166,7 +300,8 @@ class _EmergencyScreenState extends State<EmergencyScreen>
                           Text(
                             _isRecording ? 'RECORDING' : 'READY',
                             style: TextStyle(
-                              color: _isRecording ? Colors.white : Colors.white70,
+                              color:
+                                  _isRecording ? Colors.white : Colors.white70,
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
                             ),
@@ -177,7 +312,7 @@ class _EmergencyScreenState extends State<EmergencyScreen>
                   ],
                 ),
               ),
-              
+
               // Main Recording Area
               Expanded(
                 child: Container(
@@ -196,11 +331,11 @@ class _EmergencyScreenState extends State<EmergencyScreen>
                   child: Column(
                     children: [
                       const SizedBox(height: 40),
-                      
+
                       // Status Text
                       Text(
-                        _isRecording 
-                            ? 'Listening for emergencies...' 
+                        _isRecording
+                            ? 'Listening for emergencies...'
                             : 'Tap to start emergency detection',
                         style: TextStyle(
                           fontSize: 18,
@@ -209,9 +344,9 @@ class _EmergencyScreenState extends State<EmergencyScreen>
                         ),
                         textAlign: TextAlign.center,
                       ),
-                      
+
                       const SizedBox(height: 40),
-                      
+
                       // Audio Visualizer
                       Expanded(
                         child: Center(
@@ -227,7 +362,7 @@ class _EmergencyScreenState extends State<EmergencyScreen>
                                 ),
                         ),
                       ),
-                      
+
                       // Recording Controls
                       Padding(
                         padding: const EdgeInsets.all(40),
@@ -241,7 +376,7 @@ class _EmergencyScreenState extends State<EmergencyScreen>
                   ),
                 ),
               ),
-              
+
               // Instructions
               Container(
                 margin: const EdgeInsets.all(20),

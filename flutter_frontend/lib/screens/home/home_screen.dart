@@ -51,7 +51,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           radius: 25,
                           backgroundColor: Colors.white,
                           child: Text(
-                            user?.name.substring(0, 1).toUpperCase() ?? 'U',
+                            user?.fullName.substring(0, 1).toUpperCase() ?? 'U',
                             style: const TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
@@ -72,7 +72,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                               ),
                               Text(
-                                user?.name ?? 'User',
+                                user?.fullName ?? 'User',
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 20,
@@ -99,17 +99,16 @@ class _HomeScreenState extends State<HomeScreen> {
                   },
                 ),
               ),
-              
+
               // Quick Stats
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Consumer<RecordingProvider>(
                   builder: (context, recordingProvider, child) {
                     final recordings = recordingProvider.recordings;
-                    final emergencyCount = recordings
-                        .where((r) => r.emergencyAnalysis?.isEmergency == true)
-                        .length;
-                    
+                    final emergencyCount =
+                        recordings.where((r) => r.isEmergency == true).length;
+
                     return Row(
                       children: [
                         Expanded(
@@ -134,9 +133,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   },
                 ),
               ),
-              
+
               const SizedBox(height: 20),
-              
+
               // Recent Recordings Section
               Expanded(
                 child: Container(
@@ -178,12 +177,15 @@ class _HomeScreenState extends State<HomeScreen> {
                           ],
                         ),
                       ),
-                      
+
                       // Recordings List
                       Expanded(
                         child: Consumer<RecordingProvider>(
                           builder: (context, recordingProvider, child) {
-                            if (recordingProvider.isLoading) {
+                            if (recordingProvider.status ==
+                                    RecordingStatus.monitoring ||
+                                recordingProvider.status ==
+                                    RecordingStatus.processing) {
                               return const Center(
                                 child: CircularProgressIndicator(
                                   color: AppTheme.primaryColor,
@@ -222,12 +224,12 @@ class _HomeScreenState extends State<HomeScreen> {
                               );
                             }
 
-                            final recentRecordings = recordingProvider.recordings
-                                .take(5)
-                                .toList();
+                            final recentRecordings =
+                                recordingProvider.recordings.take(5).toList();
 
                             return ListView.builder(
-                              padding: const EdgeInsets.symmetric(horizontal: 20),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 20),
                               itemCount: recentRecordings.length,
                               itemBuilder: (context, index) {
                                 final recording = recentRecordings[index];

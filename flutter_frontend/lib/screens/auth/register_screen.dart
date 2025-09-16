@@ -39,12 +39,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     try {
       final authProvider = context.read<AuthProvider>();
-      await authProvider.register(
-        _nameController.text.trim(),
-        _emailController.text.trim(),
-        _phoneController.text.trim(),
-        _passwordController.text,
-      );
+      await authProvider.register({
+        'name': _nameController.text.trim(),
+        'email': _emailController.text.trim(),
+        'phone': _phoneController.text.trim(),
+        'password': _passwordController.text,
+      });
 
       if (mounted && authProvider.isAuthenticated) {
         Navigator.of(context).pushReplacement(
