@@ -430,7 +430,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
                                     valueColor: AlwaysStoppedAnimation<Color>(
-                                        Colors.white),
+                                        Colors.black54),
                                   ),
                                 )
                               : const Text(
