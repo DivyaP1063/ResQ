@@ -13,7 +13,8 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
+  final _firstNameController = TextEditingController();
+  final _lastNameController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -24,7 +25,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   void dispose() {
-    _nameController.dispose();
+    _firstNameController.dispose();
+    _lastNameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
     _passwordController.dispose();
@@ -33,23 +35,37 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Future<void> _handleRegister() async {
+    FocusScope.of(context).unfocus();
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
 
     try {
       final authProvider = context.read<AuthProvider>();
-      await authProvider.register({
-        'name': _nameController.text.trim(),
+      final success = await authProvider.register({
+        'firstName': _firstNameController.text.trim(),
+        'lastName': _lastNameController.text.trim(),
         'email': _emailController.text.trim(),
         'phone': _phoneController.text.trim(),
         'password': _passwordController.text,
       });
 
-      if (mounted && authProvider.isAuthenticated) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const MainScreen()),
-        );
+      if (mounted) {
+        if (success && authProvider.isAuthenticated) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const MainScreen()),
+          );
+        } else {
+          // Signup failed
+          final errorMessage = authProvider.error ?? 'Registration failed';
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Signup failed: $errorMessage'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -57,6 +73,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           SnackBar(
             content: Text('Registration failed: ${e.toString()}'),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
           ),
         );
       }
@@ -78,7 +95,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             child: Column(
               children: [
                 const SizedBox(height: 40),
-                
+
                 // Logo and Title
                 const Icon(
                   Icons.emergency,
@@ -102,9 +119,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     color: Colors.white70,
                   ),
                 ),
-                
+
                 const SizedBox(height: 40),
-                
+
                 // Register Form
                 Container(
                   padding: const EdgeInsets.all(24),
@@ -133,42 +150,92 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ),
                           textAlign: TextAlign.center,
                         ),
-                        
+
                         const SizedBox(height: 24),
-                        
-                        // Name Field
+
+                        // First Name Field
                         TextFormField(
-                          controller: _nameController,
+                          controller: _firstNameController,
+                          style: const TextStyle(
+                            color: Colors
+                                .black87, // Change this to your desired text color
+                            fontSize: 16,
+                          ),
                           decoration: InputDecoration(
-                            labelText: 'Full Name',
+                            labelText: 'First Name',
                             prefixIcon: const Icon(Icons.person_outlined),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: Colors.grey.shade300),
+                              borderSide:
+                                  BorderSide(color: Colors.grey.shade300),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(color: AppTheme.primaryColor),
+                              borderSide: const BorderSide(
+                                  color: AppTheme.primaryColor),
                             ),
                           ),
                           validator: (value) {
                             if (value == null || value.isEmpty) {
-                              return 'Please enter your full name';
+                              return 'Please enter your first name';
                             }
                             if (value.length < 2) {
-                              return 'Name must be at least 2 characters';
+                              return 'First name must be at least 2 characters';
                             }
                             return null;
                           },
                         ),
-                        
+
                         const SizedBox(height: 16),
-                        
+
+                        // Last Name Field
+                        TextFormField(
+                          controller: _lastNameController,
+                          style: const TextStyle(
+                            color: Colors
+                                .black87, // Change this to your desired text color
+                            fontSize: 16,
+                          ),
+                          decoration: InputDecoration(
+                            labelText: 'Last Name',
+                            prefixIcon: const Icon(Icons.person_outlined),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide:
+                                  BorderSide(color: Colors.grey.shade300),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(
+                                  color: AppTheme.primaryColor),
+                            ),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please enter your last name';
+                            }
+                            if (value.length < 2) {
+                              return 'Last name must be at least 2 characters';
+                            }
+                            return null;
+                          },
+                        ),
+
+                        const SizedBox(height: 16),
+
                         // Email Field
                         TextFormField(
+                          style: const TextStyle(
+                            color: Colors
+                                .black87, // Change this to your desired text color
+                            fontSize: 16,
+                          ),
                           controller: _emailController,
                           keyboardType: TextInputType.emailAddress,
                           decoration: InputDecoration(
@@ -179,11 +246,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: Colors.grey.shade300),
+                              borderSide:
+                                  BorderSide(color: Colors.grey.shade300),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(color: AppTheme.primaryColor),
+                              borderSide: const BorderSide(
+                                  color: AppTheme.primaryColor),
                             ),
                           ),
                           validator: (value) {
@@ -196,12 +265,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             return null;
                           },
                         ),
-                        
+
                         const SizedBox(height: 16),
-                        
+
                         // Phone Field
                         TextFormField(
                           controller: _phoneController,
+                          style: const TextStyle(
+                            color: Colors
+                                .black87, // Change this to your desired text color
+                            fontSize: 16,
+                          ),
                           keyboardType: TextInputType.phone,
                           decoration: InputDecoration(
                             labelText: 'Phone Number',
@@ -211,11 +285,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: Colors.grey.shade300),
+                              borderSide:
+                                  BorderSide(color: Colors.grey.shade300),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(color: AppTheme.primaryColor),
+                              borderSide: const BorderSide(
+                                  color: AppTheme.primaryColor),
                             ),
                           ),
                           validator: (value) {
@@ -228,12 +304,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             return null;
                           },
                         ),
-                        
+
                         const SizedBox(height: 16),
-                        
+
                         // Password Field
                         TextFormField(
                           controller: _passwordController,
+                          style: const TextStyle(
+                            color: Colors
+                                .black87, // Change this to your desired text color
+                            fontSize: 16,
+                          ),
                           obscureText: _obscurePassword,
                           decoration: InputDecoration(
                             labelText: 'Password',
@@ -255,11 +336,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: Colors.grey.shade300),
+                              borderSide:
+                                  BorderSide(color: Colors.grey.shade300),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(color: AppTheme.primaryColor),
+                              borderSide: const BorderSide(
+                                  color: AppTheme.primaryColor),
                             ),
                           ),
                           validator: (value) {
@@ -272,12 +355,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             return null;
                           },
                         ),
-                        
+
                         const SizedBox(height: 16),
-                        
+
                         // Confirm Password Field
                         TextFormField(
                           controller: _confirmPasswordController,
+                          style: const TextStyle(
+                            color: Colors
+                                .black87, // Change this to your desired text color
+                            fontSize: 16,
+                          ),
                           obscureText: _obscureConfirmPassword,
                           decoration: InputDecoration(
                             labelText: 'Confirm Password',
@@ -290,7 +378,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               ),
                               onPressed: () {
                                 setState(() {
-                                  _obscureConfirmPassword = !_obscureConfirmPassword;
+                                  _obscureConfirmPassword =
+                                      !_obscureConfirmPassword;
                                 });
                               },
                             ),
@@ -299,11 +388,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: Colors.grey.shade300),
+                              borderSide:
+                                  BorderSide(color: Colors.grey.shade300),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(color: AppTheme.primaryColor),
+                              borderSide: const BorderSide(
+                                  color: AppTheme.primaryColor),
                             ),
                           ),
                           validator: (value) {
@@ -316,9 +407,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             return null;
                           },
                         ),
-                        
+
                         const SizedBox(height: 24),
-                        
+
                         // Register Button
                         ElevatedButton(
                           onPressed: _isLoading ? null : _handleRegister,
@@ -337,7 +428,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   width: 20,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                        Colors.white),
                                   ),
                                 )
                               : const Text(
@@ -348,9 +440,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   ),
                                 ),
                         ),
-                        
+
                         const SizedBox(height: 16),
-                        
+
                         // Login Link
                         TextButton(
                           onPressed: () {

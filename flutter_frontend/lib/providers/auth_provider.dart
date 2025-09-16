@@ -95,6 +95,7 @@ class AuthProvider with ChangeNotifier {
 
   Future<bool> register(Map<String, dynamic> userData) async {
     try {
+      print('AuthProvider: Attempting registration for ${userData['email']}');
       _setError(null);
       final response = await _apiService.register(userData);
 
@@ -103,13 +104,16 @@ class AuthProvider with ChangeNotifier {
 
       // Ensure token is saved to SharedPreferences
       if (_token != null) {
+        print('AuthProvider: Saving token to SharedPreferences');
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString(AppConstants.tokenKey, _token!);
       }
 
       _setStatus(AuthStatus.authenticated);
+      print('AuthProvider: Registration successful');
       return true;
     } catch (e) {
+      print('AuthProvider: Registration failed: $e');
       _setError(e.toString());
       _setStatus(AuthStatus.unauthenticated);
       return false;
