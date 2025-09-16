@@ -266,25 +266,27 @@ class _EmergencyScreenState extends State<EmergencyScreen>
                 padding: const EdgeInsets.all(20),
                 child: Row(
                   children: [
-                    const Text(
-                      'Emergency Detection',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                    const Expanded(
+                      child: Text(
+                        'Emergency Detection',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
-                    const Spacer(),
+                    // const Spacer(),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
+                        horizontal: 8,
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
                         color: _isRecording
                             ? Colors.red
                             : Colors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(14),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -345,27 +347,29 @@ class _EmergencyScreenState extends State<EmergencyScreen>
                         textAlign: TextAlign.center,
                       ),
 
-                      const SizedBox(height: 40),
+                      const SizedBox(height: 10),
 
                       // Audio Visualizer
                       Expanded(
                         child: Center(
-                          child: _isRecording
-                              ? AudioVisualizer(
-                                  isRecording: _isRecording,
-                                  animationController: _waveController,
-                                )
-                              : Icon(
-                                  Icons.mic_outlined,
-                                  size: 120,
-                                  color: Colors.grey.shade400,
-                                ),
-                        ),
+                            child: _isRecording
+                                ? AudioVisualizer(
+                                    isRecording: _isRecording,
+                                    animationController: _waveController,
+                                  )
+                                : null
+                            // : Icon(
+                            //     Icons.mic_outlined,
+                            //     size: 120,
+                            //     color: Colors.grey.shade400,
+                            //   ),
+                            ),
                       ),
 
                       // Recording Controls
                       Padding(
-                        padding: const EdgeInsets.all(40),
+                        padding: const EdgeInsets.only(
+                            left: 40, right: 40, bottom: 40),
                         child: RecordingControls(
                           isRecording: _isRecording,
                           onToggleRecording: _toggleRecording,

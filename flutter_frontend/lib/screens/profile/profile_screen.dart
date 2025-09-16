@@ -30,116 +30,117 @@ class ProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.center,
-            colors: [
-              AppTheme.primaryColor,
-              Colors.white,
-            ],
+      body: SingleChildScrollView(
+        child: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.center,
+              colors: [
+                AppTheme.primaryColor,
+                Colors.white,
+              ],
+            ),
           ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              // Header
-              Container(
-                padding: const EdgeInsets.all(20),
-                child: const Row(
-                  children: [
-                    Text(
-                      'Profile',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
+          child: SafeArea(
+            child: Column(
+              children: [
+                // Header
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  child: const Row(
+                    children: [
+                      Text(
+                        'Profile',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-
-              // Profile Info Card
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 20),
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 20,
-                      offset: const Offset(0, 10),
-                    ),
-                  ],
-                ),
-                child: Consumer<AuthProvider>(
-                  builder: (context, authProvider, child) {
-                    final user = authProvider.user;
-                    return Column(
-                      children: [
-                        // Avatar
-                        CircleAvatar(
-                          radius: 50,
-                          backgroundColor:
-                              AppTheme.primaryColor.withOpacity(0.1),
-                          child: Text(
-                            user?.fullName.substring(0, 1).toUpperCase() ?? 'U',
-                            style: const TextStyle(
-                              fontSize: 36,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.primaryColor,
+        
+                // Profile Info Card
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 20),
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 20,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                  child: Consumer<AuthProvider>(
+                    builder: (context, authProvider, child) {
+                      final user = authProvider.user;
+                      return Column(
+                        children: [
+                          // Avatar
+                          CircleAvatar(
+                            radius: 50,
+                            backgroundColor:
+                                AppTheme.primaryColor.withOpacity(0.1),
+                            child: Text(
+                              user?.fullName.substring(0, 1).toUpperCase() ?? 'U',
+                              style: const TextStyle(
+                                fontSize: 36,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.primaryColor,
+                              ),
                             ),
                           ),
-                        ),
-
-                        const SizedBox(height: 16),
-
-                        // Name
-                        Text(
-                          user?.fullName ?? 'User',
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
+        
+                          const SizedBox(height: 16),
+        
+                          // Name
+                          Text(
+                            user?.fullName ?? 'User',
+                            style: const TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
                           ),
-                        ),
-
-                        const SizedBox(height: 4),
-
-                        // Email
-                        Text(
-                          user?.email ?? '',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.grey.shade600,
+        
+                          const SizedBox(height: 4),
+        
+                          // Email
+                          Text(
+                            user?.email ?? '',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.grey.shade600,
+                            ),
                           ),
-                        ),
-
-                        const SizedBox(height: 4),
-
-                        // Phone
-                        Text(
-                          user?.emergencyContact?.phone ?? '',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.grey.shade600,
+        
+                          const SizedBox(height: 4),
+        
+                          // Phone
+                          Text(
+                            user?.emergencyContact?.phone ?? '',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.grey.shade600,
+                            ),
                           ),
-                        ),
-                      ],
-                    );
-                  },
+                        ],
+                      );
+                    },
+                  ),
                 ),
-              ),
-
-              const SizedBox(height: 30),
-
-              // Statistics Section
-              Expanded(
-                child: Container(
+        
+                const SizedBox(height: 30),
+        
+                // Statistics Section
+                Container(
+                  
                   decoration: const BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.only(
@@ -160,9 +161,9 @@ class ProfileScreen extends StatelessWidget {
                             color: Colors.black87,
                           ),
                         ),
-
+                        
                         const SizedBox(height: 20),
-
+                        
                         // Stats Cards
                         Consumer<RecordingProvider>(
                           builder: (context, recordingProvider, child) {
@@ -170,7 +171,7 @@ class ProfileScreen extends StatelessWidget {
                             final emergencyCount = recordings
                                 .where((r) => r.isEmergency == true)
                                 .length;
-
+                        
                             return Column(
                               children: [
                                 _buildStatCard(
@@ -197,36 +198,36 @@ class ProfileScreen extends StatelessWidget {
                             );
                           },
                         ),
-
-                        const Spacer(),
-
+                        
+                        // const Spacer(),
+                        
                         // Settings Options
-                        _buildMenuItem(
-                          'Settings',
-                          Icons.settings_outlined,
-                          () {
-                            // Navigate to settings
-                          },
-                        ),
-
-                        _buildMenuItem(
-                          'Help & Support',
-                          Icons.help_outline,
-                          () {
-                            // Navigate to help
-                          },
-                        ),
-
-                        _buildMenuItem(
-                          'Privacy Policy',
-                          Icons.privacy_tip_outlined,
-                          () {
-                            // Navigate to privacy policy
-                          },
-                        ),
-
+                        // _buildMenuItem(
+                        //   'Settings',
+                        //   Icons.settings_outlined,
+                        //   () {
+                        //     // Navigate to settings
+                        //   },
+                        // ),
+                        
+                        // _buildMenuItem(
+                        //   'Help & Support',
+                        //   Icons.help_outline,
+                        //   () {
+                        //     // Navigate to help
+                        //   },
+                        // ),
+                        
+                        // _buildMenuItem(
+                        //   'Privacy Policy',
+                        //   Icons.privacy_tip_outlined,
+                        //   () {
+                        //     // Navigate to privacy policy
+                        //   },
+                        // ),
+                        
                         const SizedBox(height: 20),
-
+                        
                         // Logout Button
                         SizedBox(
                           width: double.infinity,
@@ -261,8 +262,8 @@ class ProfileScreen extends StatelessWidget {
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -293,27 +294,25 @@ class ProfileScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey.shade600,
-                  ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey.shade600,
                 ),
-                Text(
-                  value,
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
+              ),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ],
       ),
