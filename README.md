@@ -25,7 +25,7 @@ project/
 ```bash
 cd server
 npm install
-cp .env.example .env  # Configure your environment variables
+cp .env.example .env
 npm run dev
 ```
 
@@ -39,7 +39,7 @@ npm run dev
 ```bash
 cd flutter_frontend
 flutter pub get
-flutter run -d web  # For web version
+flutter run -d web
 ```
 
 ## 🔧 Environment Variables
