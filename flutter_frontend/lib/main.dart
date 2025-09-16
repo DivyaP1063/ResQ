@@ -4,10 +4,13 @@ import 'providers/auth_provider.dart';
 import 'providers/recording_provider.dart';
 import 'providers/websocket_provider.dart';
 import 'screens/splash_screen.dart';
+import 'services/api_service.dart';
 import 'utils/constants.dart';
 import 'utils/theme.dart';
 
 void main() {
+  // Initialize ApiService before running the app
+  ApiService().initialize();
   runApp(const ResQApp());
 }
 

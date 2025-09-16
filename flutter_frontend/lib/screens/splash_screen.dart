@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
-import '../services/api_service.dart';
 import 'auth/login_screen.dart';
 import 'main_screen.dart';
 import '../utils/theme.dart';
@@ -21,24 +20,34 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _initializeApp() async {
-    // Initialize API service
-    ApiService().initialize();
-    
-    // Wait for auth check
-    await Future.delayed(const Duration(seconds: 2));
-    
+    // Small delay for splash effect while auth initializes
+    await Future.delayed(const Duration(milliseconds: 1500));
+
     if (mounted) {
-      final authProvider = context.read<AuthProvider>();
-      
-      if (authProvider.isAuthenticated) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const MainScreen()),
-        );
-      } else {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const LoginScreen()),
-        );
-      }
+      _checkAuthAndNavigate();
+    }
+  }
+
+  void _checkAuthAndNavigate() {
+    final authProvider = context.read<AuthProvider>();
+
+    if (authProvider.status == AuthStatus.loading) {
+      // Still loading, wait a bit more
+      Future.delayed(const Duration(milliseconds: 200), () {
+        if (mounted) _checkAuthAndNavigate();
+      });
+      return;
+    }
+
+    // Auth status is determined, navigate accordingly
+    if (authProvider.isAuthenticated) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const MainScreen()),
+      );
+    } else {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+      );
     }
   }
 
@@ -60,7 +69,7 @@ class _SplashScreenState extends State<SplashScreen> {
                 color: Colors.white,
               ),
               SizedBox(height: 24),
-              
+
               // App Name
               Text(
                 'ResQ',
@@ -71,7 +80,7 @@ class _SplashScreenState extends State<SplashScreen> {
                   letterSpacing: 2,
                 ),
               ),
-              
+
               // Tagline
               Text(
                 'Emergency Detection System',
@@ -81,17 +90,17 @@ class _SplashScreenState extends State<SplashScreen> {
                   letterSpacing: 1,
                 ),
               ),
-              
+
               SizedBox(height: 48),
-              
+
               // Loading Indicator
               CircularProgressIndicator(
                 valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                 strokeWidth: 3,
               ),
-              
+
               SizedBox(height: 16),
-              
+
               Text(
                 'Initializing...',
                 style: TextStyle(
