@@ -1,4 +1,6 @@
-const API_BASE_URL = 'http://localhost:5000/api';
+import { API_CONFIG } from '../config/constants';
+
+const API_BASE_URL = API_CONFIG.API_BASE_URL;
 
 // Auth API
 export const authAPI = {
