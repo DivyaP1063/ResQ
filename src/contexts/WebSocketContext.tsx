@@ -1,5 +1,6 @@
 import React, { createContext, useEffect, useState, ReactNode, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
+import { API_CONFIG, APP_CONFIG } from '../config/constants';
 
 interface EmergencyAlert {
   type: string;
@@ -22,14 +23,14 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
   const [isConnected, setIsConnected] = useState(false);
   const [alerts, setAlerts] = useState<EmergencyAlert[]>([]);
   const [reconnectAttempts, setReconnectAttempts] = useState(0);
-  const maxReconnectAttempts = 5;
+  const maxReconnectAttempts = APP_CONFIG.WEBSOCKET_RECONNECT_ATTEMPTS;
   const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
     if (!user) return;
 
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.hostname}:5000`;
+    // Use the configured WebSocket URL
+    const wsUrl = API_CONFIG.WS_BASE_URL;
     
     const connectWebSocket = () => {
       wsRef.current = new WebSocket(wsUrl);
@@ -68,7 +69,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
         // Only attempt to reconnect if we haven't exceeded max attempts
         if (reconnectAttempts < maxReconnectAttempts) {
           setReconnectAttempts(prev => prev + 1);
-          const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 10000); // Exponential backoff
+          const delay = Math.min(APP_CONFIG.WEBSOCKET_RECONNECT_DELAY * Math.pow(2, reconnectAttempts), 10000); // Exponential backoff
           setTimeout(connectWebSocket, delay);
         }
       };
