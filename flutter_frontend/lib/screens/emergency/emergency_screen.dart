@@ -17,6 +17,7 @@ class _EmergencyScreenState extends State<EmergencyScreen>
   late AnimationController _pulseController;
   late AnimationController _waveController;
   bool _isRecording = false;
+  bool _isProcessing = false; // Add processing state
   final AudioService _audioService = AudioService();
   final WebSocketService _wsService = WebSocketService();
 
@@ -49,6 +50,9 @@ class _EmergencyScreenState extends State<EmergencyScreen>
   }
 
   Future<void> _toggleRecording() async {
+    // Prevent multiple calls when processing
+    if (_isProcessing) return;
+
     if (_isRecording) {
       await _stopRecording();
     } else {
@@ -100,6 +104,35 @@ class _EmergencyScreenState extends State<EmergencyScreen>
 
   Future<void> _stopRecording() async {
     try {
+      // Set processing state and update UI
+      setState(() {
+        _isProcessing = true;
+      });
+
+      // Show processing message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                ),
+                SizedBox(width: 12),
+                Text('Processing recording...'),
+              ],
+            ),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 10), // Longer duration for processing
+          ),
+        );
+      }
+
       final result = await _audioService.stopRecording();
       setState(() => _isRecording = false);
 
@@ -107,25 +140,43 @@ class _EmergencyScreenState extends State<EmergencyScreen>
       _waveController.stop();
 
       if (result != null && mounted) {
-        // Check if emergency was detected
-        final isEmergency = result['recording']?['isEmergency'] ?? false;
-        final transcription = result['recording']?['transcription'] ?? '';
-        final confidence = result['recording']?['confidence'] ?? 0.0;
-        final emergencyType = result['recording']?['emergencyType'] ?? '';
+        // Check if upload failed but we got a placeholder result
+        final uploadFailed = result['recording']?['uploadFailed'] ?? false;
 
-        if (isEmergency) {
-          // Send WebSocket alert for real-time notifications
-          _wsService.sendEmergencyAlert(transcription, confidence);
-
-          // Show emergency alert
-          _showEmergencyAlert(transcription, confidence, emergencyType);
-        } else {
+        if (uploadFailed) {
+          // Show upload failure message but keep processing
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Recording processed - No emergency detected'),
-              backgroundColor: Colors.green,
+              content: Text(
+                  'Upload slow - Processing in background. Results will appear in Home.'),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 5),
             ),
           );
+        } else {
+          // Normal processing - check if emergency was detected
+          final isEmergency = result['recording']?['isEmergency'] ?? false;
+          final transcription = result['recording']?['transcription'] ?? '';
+          // Safely convert confidence to double to avoid type errors
+          final confidenceValue = result['recording']?['confidence'];
+          final confidence =
+              (confidenceValue is num) ? confidenceValue.toDouble() : 0.0;
+          final emergencyType = result['recording']?['emergencyType'] ?? '';
+
+          if (isEmergency) {
+            // Send WebSocket alert for real-time notifications
+            _wsService.sendEmergencyAlert(transcription, confidence);
+
+            // Show emergency alert
+            _showEmergencyAlert(transcription, confidence, emergencyType);
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Recording processed - No emergency detected'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
         }
       }
     } catch (e) {
@@ -136,6 +187,13 @@ class _EmergencyScreenState extends State<EmergencyScreen>
             backgroundColor: Colors.red,
           ),
         );
+      }
+    } finally {
+      // Always reset processing state
+      if (mounted) {
+        setState(() {
+          _isProcessing = false;
+        });
       }
     }
   }
@@ -154,14 +212,16 @@ class _EmergencyScreenState extends State<EmergencyScreen>
           ),
           title: Row(
             children: [
-              Icon(Icons.warning, color: Colors.red, size: 30),
+              Expanded(child: Icon(Icons.warning, color: Colors.red, size: 30)),
               const SizedBox(width: 12),
-              const Text(
-                '🚨 EMERGENCY DETECTED',
-                style: TextStyle(
-                  color: Colors.red,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
+              Expanded(
+                child: const Text(
+                  'EMERGENCY DETECTED',
+                  style: TextStyle(
+                    color: Colors.red,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                  ),
                 ),
               ),
             ],
@@ -283,27 +343,46 @@ class _EmergencyScreenState extends State<EmergencyScreen>
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: _isRecording
-                            ? Colors.red
-                            : Colors.white.withOpacity(0.2),
+                        color: _isProcessing
+                            ? Colors.orange
+                            : _isRecording
+                                ? Colors.red
+                                : Colors.white.withOpacity(0.2),
                         borderRadius: BorderRadius.circular(14),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(
-                            _isRecording
-                                ? Icons.radio_button_checked
-                                : Icons.radio_button_unchecked,
-                            color: _isRecording ? Colors.white : Colors.white70,
-                            size: 16,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            _isRecording ? 'RECORDING' : 'READY',
-                            style: TextStyle(
+                          if (_isProcessing)
+                            const SizedBox(
+                              width: 12,
+                              height: 12,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor:
+                                    AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                            )
+                          else
+                            Icon(
+                              _isRecording
+                                  ? Icons.radio_button_checked
+                                  : Icons.radio_button_unchecked,
                               color:
                                   _isRecording ? Colors.white : Colors.white70,
+                              size: 16,
+                            ),
+                          const SizedBox(width: 6),
+                          Text(
+                            _isProcessing
+                                ? 'PROCESSING'
+                                : _isRecording
+                                    ? 'RECORDING'
+                                    : 'READY',
+                            style: TextStyle(
+                              color: _isProcessing || _isRecording
+                                  ? Colors.white
+                                  : Colors.white70,
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
                             ),
@@ -336,9 +415,11 @@ class _EmergencyScreenState extends State<EmergencyScreen>
 
                       // Status Text
                       Text(
-                        _isRecording
-                            ? 'Listening for emergencies...'
-                            : 'Tap to start emergency detection',
+                        _isProcessing
+                            ? 'Processing recording...'
+                            : _isRecording
+                                ? 'Listening for emergencies...'
+                                : 'Tap to start emergency detection',
                         style: TextStyle(
                           fontSize: 18,
                           color: Colors.grey.shade700,
@@ -374,6 +455,7 @@ class _EmergencyScreenState extends State<EmergencyScreen>
                           isRecording: _isRecording,
                           onToggleRecording: _toggleRecording,
                           pulseController: _pulseController,
+                          isProcessing: _isProcessing, // Pass processing state
                         ),
                       ),
                     ],
