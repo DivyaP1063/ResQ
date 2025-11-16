@@ -1,5 +1,6 @@
 package com.example.flutter_frontend
 
+import android.content.Context
 import android.content.Intent
 import androidx.annotation.NonNull
 import androidx.core.content.ContextCompat
@@ -24,6 +25,9 @@ class MainActivity: FlutterActivity() {
     override fun configureFlutterEngine(@NonNull flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         
+        // Check if we were launched due to emergency detection
+        checkForEmergencyIntent()
+        
         // Set up MethodChannel for Flutter -> Android communication
         methodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
         methodChannel?.setMethodCallHandler { call, result ->
@@ -36,6 +40,9 @@ class MainActivity: FlutterActivity() {
                 }
                 "isKeywordDetectionRunning" -> {
                     checkKeywordDetectionStatus(result)
+                }
+                "saveTokenForEmergency" -> {
+                    saveTokenForEmergency(call.arguments as? String, result)
                 }
                 else -> {
                     result.notImplemented()
@@ -108,5 +115,47 @@ class MainActivity: FlutterActivity() {
         methodChannel?.setMethodCallHandler(null)
         eventChannel?.setStreamHandler(null)
         KeywordDetectionService.eventSink = null
+    }
+    
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        checkForEmergencyIntent()
+    }
+    
+    /**
+     * Saves authentication token for emergency uploads
+     */
+    private fun saveTokenForEmergency(token: String?, result: MethodChannel.Result) {
+        try {
+            if (token != null) {
+                val sharedPref = getSharedPreferences("EmergencyAuth", Context.MODE_PRIVATE)
+                with(sharedPref.edit()) {
+                    putString("auth_token", token)
+                    apply()
+                }
+                android.util.Log.d("MainActivity", "Token saved for emergency uploads")
+                result.success(true)
+            } else {
+                result.error("NO_TOKEN", "Token is null", null)
+            }
+        } catch (e: Exception) {
+            result.error("SAVE_ERROR", "Failed to save token: ${e.message}", null)
+        }
+    }
+
+    private fun checkForEmergencyIntent() {
+        val emergencyDetected = intent?.getBooleanExtra("emergency_detected", false) ?: false
+        val emergencyConfirmed = intent?.getBooleanExtra("emergency_confirmed", false) ?: false
+        
+        if (emergencyDetected || emergencyConfirmed) {
+            android.util.Log.d("MainActivity", "Emergency intent detected: detected=$emergencyDetected, confirmed=$emergencyConfirmed")
+            
+            // Send emergency event to Flutter when the channel is ready
+            methodChannel?.invokeMethod("onEmergencyDetectedFromBackground", mapOf(
+                "emergencyDetected" to emergencyDetected,
+                "emergencyConfirmed" to emergencyConfirmed
+            ))
+        }
     }
 }

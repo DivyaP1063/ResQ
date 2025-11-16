@@ -1,8 +1,10 @@
 package com.example.flutter_frontend.services
 
+import android.Manifest
 import android.app.*
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
@@ -19,6 +21,15 @@ import java.nio.ByteOrder
 import ai.picovoice.porcupine.Porcupine
 import ai.picovoice.porcupine.PorcupineException
 import com.example.flutter_frontend.BuildConfig
+import java.io.File
+import java.io.FileOutputStream
+import java.io.IOException
+import java.text.SimpleDateFormat
+import java.util.*
+import okhttp3.*
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.RequestBody.Companion.asRequestBody
+import org.json.JSONObject
 
 /**
  * Foreground service for continuous keyword detection
@@ -53,6 +64,11 @@ class KeywordDetectionService : Service() {
     // Porcupine keyword detection
     private var porcupine: Porcupine? = null
     private lateinit var audioBuffer: ShortArray
+    
+    // Emergency recording when app is closed
+    private var emergencyRecorder: MediaRecorder? = null
+    private var isEmergencyRecording = false
+    private val okHttpClient = OkHttpClient()
     
     override fun onCreate() {
         super.onCreate()
@@ -91,6 +107,21 @@ class KeywordDetectionService : Service() {
         
         // Clean up resources
         stopKeywordDetection()
+        
+        // Stop emergency recording if active
+        if (isEmergencyRecording) {
+            try {
+                emergencyRecorder?.apply {
+                    stop()
+                    release()
+                }
+                emergencyRecorder = null
+                isEmergencyRecording = false
+            } catch (e: Exception) {
+                Log.e(TAG, "Error stopping emergency recording: ${e.message}")
+            }
+        }
+        
         releaseWakeLock()
         cleanupPorcupine()
         serviceScope.cancel()
@@ -218,6 +249,14 @@ class KeywordDetectionService : Service() {
             return
         }
 
+        // Check for required permissions
+        if (!hasRequiredPermissions()) {
+            Log.e(TAG, "Missing required permissions for keyword detection")
+            eventSink?.error("PERMISSION_ERROR", "Required permissions not granted", null)
+            stopSelf()
+            return
+        }
+
         try {
             // Check if Porcupine was initialized successfully
             if (porcupine == null) {
@@ -333,34 +372,381 @@ class KeywordDetectionService : Service() {
     }
     
     /**
+     * Check if the service has all required permissions
+     */
+    private fun hasRequiredPermissions(): Boolean {
+        val recordAudioPermission = ContextCompat.checkSelfPermission(
+            this, 
+            Manifest.permission.RECORD_AUDIO
+        ) == PackageManager.PERMISSION_GRANTED
+        
+        val foregroundServicePermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            ContextCompat.checkSelfPermission(
+                this, 
+                Manifest.permission.FOREGROUND_SERVICE_MICROPHONE
+            ) == PackageManager.PERMISSION_GRANTED
+        } else {
+            true // Not required for older versions
+        }
+        
+        return recordAudioPermission && foregroundServicePermission
+    }
+    
+    /**
      * Handles keyword detection event
-     * Sends notification to Flutter app
+     * If app is open: sends event to Flutter
+     * If app is closed: starts emergency recording and brings app to foreground
      */
     private fun handleKeywordDetection() {
         // Switch to main thread for UI operations
         CoroutineScope(Dispatchers.Main).launch {
             try {
-                // Send event to Flutter via EventChannel
-                eventSink?.success("help_detected")
+                Log.i(TAG, "Emergency keyword detected!")
                 
-                // Log the detection
-                Log.i(TAG, "Keyword detection event sent to Flutter")
-                
-                // Update notification to show detection
-                val detectionNotification = NotificationCompat.Builder(this@KeywordDetectionService, CHANNEL_ID)
-                    .setContentTitle("ResQ Emergency Detection")
-                    .setContentText("Emergency keyword detected! Starting recording...")
-                    .setSmallIcon(R.drawable.ic_notification)
-                    .setPriority(NotificationCompat.PRIORITY_HIGH)
-                    .setAutoCancel(true)
-                    .build()
+                if (eventSink != null) {
+                    // App is open - send event to Flutter
+                    Log.d(TAG, "App is open, sending event to Flutter")
+                    eventSink?.success("help_detected")
                     
-                val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-                notificationManager.notify(NOTIFICATION_ID + 1, detectionNotification)
+                    // Update notification to show detection
+                    val detectionNotification = NotificationCompat.Builder(this@KeywordDetectionService, CHANNEL_ID)
+                        .setContentTitle("ResQ Emergency Detection")
+                        .setContentText("Emergency keyword detected! Starting recording...")
+                        .setSmallIcon(R.drawable.ic_notification)
+                        .setPriority(NotificationCompat.PRIORITY_HIGH)
+                        .setAutoCancel(true)
+                        .build()
+                        
+                    val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                    notificationManager.notify(NOTIFICATION_ID + 1, detectionNotification)
+                } else {
+                    // App is closed - handle emergency directly
+                    Log.d(TAG, "App is closed, starting emergency recording")
+                    handleEmergencyWhenAppClosed()
+                }
                 
             } catch (e: Exception) {
                 Log.e(TAG, "Error handling keyword detection: ${e.message}")
             }
+        }
+    }
+    
+    /**
+     * Handles emergency detection when app is closed
+     * Starts recording, brings app to foreground, and uploads to backend
+     */
+    private fun handleEmergencyWhenAppClosed() {
+        try {
+            // Start emergency recording
+            startEmergencyRecording()
+            
+            // Bring app to foreground
+            bringAppToForeground()
+            
+            // Show urgent notification
+            showEmergencyNotification()
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error handling emergency when app closed: ${e.message}")
+        }
+    }
+    
+    /**
+     * Starts emergency recording directly from service
+     */
+    private fun startEmergencyRecording() {
+        if (isEmergencyRecording) {
+            Log.w(TAG, "Emergency recording already in progress")
+            return
+        }
+        
+        try {
+            Log.d(TAG, "Starting emergency recording from service")
+            
+            // Create recording file
+            val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+            val fileName = "emergency_recording_$timestamp.m4a"
+            val recordingFile = File(filesDir, fileName)
+            
+            // Initialize MediaRecorder
+            emergencyRecorder = MediaRecorder().apply {
+                setAudioSource(MediaRecorder.AudioSource.MIC)
+                setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+                setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+                setAudioSamplingRate(44100)
+                setAudioEncodingBitRate(128000)
+                setOutputFile(recordingFile.absolutePath)
+                prepare()
+                start()
+            }
+            
+            isEmergencyRecording = true
+            
+            // Schedule automatic stop after 30 seconds
+            serviceScope.launch {
+                delay(30000) // 30 seconds
+                stopEmergencyRecording(recordingFile)
+            }
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to start emergency recording: ${e.message}")
+            emergencyRecorder = null
+            isEmergencyRecording = false
+        }
+    }
+    
+    /**
+     * Stops emergency recording and uploads to backend
+     */
+    private fun stopEmergencyRecording(recordingFile: File) {
+        if (!isEmergencyRecording) return
+        
+        try {
+            Log.d(TAG, "Stopping emergency recording")
+            
+            emergencyRecorder?.apply {
+                stop()
+                release()
+            }
+            emergencyRecorder = null
+            isEmergencyRecording = false
+            
+            // Upload to backend
+            serviceScope.launch {
+                uploadEmergencyRecording(recordingFile)
+            }
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to stop emergency recording: ${e.message}")
+            emergencyRecorder = null
+            isEmergencyRecording = false
+        }
+    }
+    
+    /**
+     * Uploads emergency recording to backend
+     */
+    private suspend fun uploadEmergencyRecording(recordingFile: File) = withContext(Dispatchers.IO) {
+        try {
+            Log.d(TAG, "Uploading emergency recording: ${recordingFile.name}")
+            
+            if (!recordingFile.exists()) {
+                Log.e(TAG, "Recording file not found: ${recordingFile.absolutePath}")
+                return@withContext
+            }
+            
+            // Get auth token from SharedPreferences (try multiple possible locations)
+            var token: String? = null
+            
+            // First, try the emergency auth storage (most reliable)
+            try {
+                val emergencyPrefs = getSharedPreferences("EmergencyAuth", Context.MODE_PRIVATE)
+                token = emergencyPrefs.getString("auth_token", null)
+                if (token != null) {
+                    Log.d(TAG, "Found token in EmergencyAuth preferences")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error reading EmergencyAuth preferences: ${e.message}")
+            }
+            
+            // If not found, try Flutter SharedPreferences directly
+            if (token == null) {
+                try {
+                    val flutterPrefs = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+                    
+                    // Try the exact key we saw in the logs: flutter.resq_token
+                    token = flutterPrefs.getString("flutter.resq_token", null)
+                    
+                    if (token != null && token.trim().isNotEmpty()) {
+                        Log.d(TAG, "Found token in flutter.resq_token")
+                    } else {
+                        Log.d(TAG, "flutter.resq_token is null or empty")
+                        token = null
+                    }
+                    
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error reading Flutter SharedPreferences: ${e.message}")
+                }
+            }
+            
+            // Final fallback - try standard SharedPreferences
+            if (token == null) {
+                try {
+                    val standardPrefs = getSharedPreferences(packageName + "_preferences", Context.MODE_PRIVATE)
+                    token = standardPrefs.getString("resq_token", null)
+                    if (token != null) {
+                        Log.d(TAG, "Found token in standard preferences")
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error reading standard SharedPreferences: ${e.message}")
+                }
+            }
+            
+            if (token == null) {
+                Log.w(TAG, "No auth token found in any SharedPreferences, uploading as anonymous emergency")
+                Log.w(TAG, "This will likely result in a 401 Unauthorized error")
+            } else {
+                Log.d(TAG, "Found auth token for emergency upload (length: ${token.length})")
+                Log.d(TAG, "Token starts with: ${token.take(10)}...")
+            }
+            
+            // Create multipart request
+            val requestBody = MultipartBody.Builder()
+                .setType(MultipartBody.FORM)
+                .addFormDataPart(
+                    "audio", 
+                    recordingFile.name,
+                    recordingFile.asRequestBody("audio/mp4".toMediaTypeOrNull()) // Changed from audio/m4a to audio/mp4
+                )
+                .addFormDataPart("isEmergency", "true")
+                .addFormDataPart("source", "background_keyword_detection")
+                .build()
+            
+            val request = Request.Builder()
+                .url("http://10.88.25.141:5000/api/recordings/upload") // Match Flutter config
+                .post(requestBody)
+                .apply {
+                    if (token != null && token.trim().isNotEmpty()) {
+                        header("Authorization", "Bearer $token")
+                        Log.d(TAG, "Added Authorization header with Bearer token")
+                    } else {
+                        Log.w(TAG, "No valid token available, request will be unauthenticated")
+                    }
+                }
+                .build()
+            
+            Log.d(TAG, "Sending upload request to backend...")
+            val response = okHttpClient.newCall(request).execute()
+            
+            Log.d(TAG, "Upload response: ${response.code} ${response.message}")
+            
+            if (response.isSuccessful) {
+                Log.i(TAG, "Emergency recording uploaded successfully")
+                
+                // Parse response to check if emergency was detected
+                val responseBody = response.body?.string()
+                if (responseBody != null) {
+                    val jsonResponse = JSONObject(responseBody)
+                    val recording = jsonResponse.getJSONObject("recording")
+                    val isEmergency = recording.getBoolean("isEmergency")
+                    
+                    Log.i(TAG, "Backend analysis - Emergency detected: $isEmergency")
+                    
+                    if (isEmergency) {
+                        showEmergencyConfirmedNotification()
+                    }
+                }
+                
+                // Clean up the file after successful upload
+                recordingFile.delete()
+                
+            } else {
+                Log.e(TAG, "Failed to upload emergency recording: ${response.code} ${response.message}")
+                
+                // Log response body for debugging
+                val errorBody = response.body?.string()
+                if (errorBody != null) {
+                    Log.e(TAG, "Error response body: $errorBody")
+                } else {
+                    Log.e(TAG, "No error response body")
+                }
+                
+                // If it's a 401 error, the issue is definitely authentication
+                if (response.code == 401) {
+                    Log.e(TAG, "Authentication failed - token is missing, invalid, or expired")
+                    if (token == null) {
+                        Log.e(TAG, "Root cause: No token found in any SharedPreferences")
+                    } else {
+                        Log.e(TAG, "Root cause: Token exists but server rejected it")
+                        Log.e(TAG, "Token used: ${token.take(20)}...")
+                    }
+                }
+            }
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error uploading emergency recording: ${e.message}")
+        }
+    }
+    
+    /**
+     * Brings the app to foreground
+     */
+    private fun bringAppToForeground() {
+        try {
+            val intent = Intent(this, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                putExtra("emergency_detected", true)
+            }
+            startActivity(intent)
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to bring app to foreground: ${e.message}")
+        }
+    }
+    
+    /**
+     * Shows urgent emergency notification
+     */
+    private fun showEmergencyNotification() {
+        try {
+            val intent = Intent(this, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                putExtra("emergency_detected", true)
+            }
+            val pendingIntent = PendingIntent.getActivity(
+                this, 0, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            
+            val notification = NotificationCompat.Builder(this, CHANNEL_ID)
+                .setContentTitle("🚨 EMERGENCY DETECTED")
+                .setContentText("Emergency keyword detected! Recording started automatically.")
+                .setSmallIcon(R.drawable.ic_notification)
+                .setContentIntent(pendingIntent)
+                .setPriority(NotificationCompat.PRIORITY_MAX)
+                .setCategory(NotificationCompat.CATEGORY_ALARM)
+                .setAutoCancel(true)
+                .setVibrate(longArrayOf(0, 500, 200, 500))
+                .build()
+                
+            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.notify(NOTIFICATION_ID + 2, notification)
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to show emergency notification: ${e.message}")
+        }
+    }
+    
+    /**
+     * Shows notification when emergency is confirmed by backend
+     */
+    private fun showEmergencyConfirmedNotification() {
+        try {
+            val intent = Intent(this, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                putExtra("emergency_confirmed", true)
+            }
+            val pendingIntent = PendingIntent.getActivity(
+                this, 0, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            
+            val notification = NotificationCompat.Builder(this, CHANNEL_ID)
+                .setContentTitle("🆘 EMERGENCY CONFIRMED")
+                .setContentText("Emergency alert has been sent to your contacts!")
+                .setSmallIcon(R.drawable.ic_notification)
+                .setContentIntent(pendingIntent)
+                .setPriority(NotificationCompat.PRIORITY_MAX)
+                .setCategory(NotificationCompat.CATEGORY_ALARM)
+                .setAutoCancel(true)
+                .setVibrate(longArrayOf(0, 1000, 500, 1000))
+                .build()
+                
+            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.notify(NOTIFICATION_ID + 3, notification)
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to show emergency confirmed notification: ${e.message}")
         }
     }
 }

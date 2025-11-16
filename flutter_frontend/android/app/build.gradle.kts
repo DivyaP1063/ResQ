@@ -57,6 +57,9 @@ android {
 dependencies {
     // Porcupine wake word detection
     implementation("ai.picovoice:porcupine-android:3.0.1")
+    
+    // OkHttp for emergency recording uploads
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 }
 
 flutter {

@@ -10,11 +10,44 @@ class KeywordDetectionProvider extends ChangeNotifier {
   StreamSubscription<String>? _keywordSubscription;
   final AudioService _audioService = AudioService();
 
+  /// Callback for when emergency is detected
+  Function()? onEmergencyDetected;
+
   /// Whether keyword detection is currently active
   bool get isDetectionActive => _isDetectionActive;
 
   /// Whether the service is listening for keyword events
   bool get isListening => _isListening;
+
+  KeywordDetectionProvider() {
+    // Set up callback for emergency detection from background
+    KeywordDetectionService.setEmergencyFromBackgroundCallback(
+        _handleEmergencyFromBackground);
+  }
+
+  /// Handles emergency detected when app was closed
+  void _handleEmergencyFromBackground(Map<String, dynamic> data) {
+    debugPrint('Emergency detected from background service: $data');
+
+    final emergencyDetected = data['emergencyDetected'] as bool? ?? false;
+    final emergencyConfirmed = data['emergencyConfirmed'] as bool? ?? false;
+
+    if (emergencyDetected || emergencyConfirmed) {
+      // If emergency was detected in background, the recording is already done
+      // Just notify the app that emergency was handled
+      debugPrint('🚨 Emergency was already handled by background service!');
+
+      if (emergencyConfirmed) {
+        debugPrint('✅ Emergency confirmed by backend - alerts were sent!');
+      }
+
+      // Trigger emergency callback if set
+      onEmergencyDetected?.call();
+
+      // Notify listeners to update UI
+      notifyListeners();
+    }
+  }
 
   /// Starts keyword detection and sets up event listening
   Future<bool> startDetection() async {

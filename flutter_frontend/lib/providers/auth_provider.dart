@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user.dart';
 import '../services/api_service.dart';
@@ -8,6 +9,8 @@ enum AuthStatus { loading, authenticated, unauthenticated }
 
 class AuthProvider with ChangeNotifier {
   final ApiService _apiService = ApiService();
+  static const MethodChannel _methodChannel =
+      MethodChannel('com.example.flutter_frontend/keyword_detection');
 
   AuthStatus _status = AuthStatus.loading;
   User? _user;
@@ -80,6 +83,9 @@ class AuthProvider with ChangeNotifier {
         print('AuthProvider: Saving token to SharedPreferences');
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString(AppConstants.tokenKey, _token!);
+
+        // Also save token for emergency uploads via native method
+        await _saveTokenForEmergency(_token!);
       }
 
       _setStatus(AuthStatus.authenticated);
@@ -121,6 +127,9 @@ class AuthProvider with ChangeNotifier {
         print('AuthProvider: Saving token to SharedPreferences');
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString(AppConstants.tokenKey, _token!);
+
+        // Also save token for emergency uploads via native method
+        await _saveTokenForEmergency(_token!);
       }
 
       _setStatus(AuthStatus.authenticated);
@@ -175,5 +184,20 @@ class AuthProvider with ChangeNotifier {
 
   void clearError() {
     _setError(null);
+  }
+
+  /// Saves the authentication token for emergency uploads
+  Future<void> _saveTokenForEmergency(String token) async {
+    try {
+      debugPrint(
+          'AuthProvider: Attempting to save token for emergency uploads');
+      await _methodChannel.invokeMethod('saveTokenForEmergency', token);
+      debugPrint(
+          'AuthProvider: Token saved for emergency uploads successfully');
+    } catch (e) {
+      debugPrint(
+          'AuthProvider: Failed to save token for emergency uploads: $e');
+      // Don't throw error as this is not critical for normal operation
+    }
   }
 }

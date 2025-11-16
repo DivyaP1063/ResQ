@@ -11,6 +11,22 @@ class KeywordDetectionService {
       EventChannel('com.example.flutter_frontend/keyword_events');
 
   static Stream<String>? _keywordStream;
+  static Function(Map<String, dynamic>)? _onEmergencyFromBackground;
+
+  /// Set callback for when emergency is detected from background
+  static void setEmergencyFromBackgroundCallback(
+      Function(Map<String, dynamic>) callback) {
+    _onEmergencyFromBackground = callback;
+
+    // Set up method call handler for emergency events from native
+    _methodChannel.setMethodCallHandler((call) async {
+      if (call.method == 'onEmergencyDetectedFromBackground') {
+        final arguments = call.arguments as Map<String, dynamic>;
+        debugPrint('Emergency detected from background: $arguments');
+        _onEmergencyFromBackground?.call(arguments);
+      }
+    });
+  }
 
   /// Stream of keyword detection events
   /// Emits 'help_detected' when emergency keywords are detected
@@ -34,7 +50,14 @@ class KeywordDetectionService {
       debugPrint('Keyword detection started: $result');
       return result;
     } on PlatformException catch (e) {
-      debugPrint('Error starting keyword detection: ${e.message}');
+      debugPrint('Error starting keyword detection: ${e.code}: ${e.message}');
+
+      // Handle specific permission errors
+      if (e.code == 'PERMISSION_ERROR' || e.code == 'PERMISSION_DENIED') {
+        debugPrint(
+            'Permission denied for keyword detection. User needs to grant microphone and notification permissions.');
+      }
+
       return false;
     }
   }
