@@ -99,8 +99,22 @@ class AuthProvider with ChangeNotifier {
       _setError(null);
       final response = await _apiService.register(userData);
 
+      print('AuthProvider: Registration response received');
+      print('AuthProvider: Response keys: ${response.keys}');
+      print('AuthProvider: Response token: ${response['token']}');
+      print('AuthProvider: Response user: ${response['user']}');
+
       _token = response['token'];
-      _user = User.fromJson(response['user']);
+
+      // Add error handling for User.fromJson
+      try {
+        _user = User.fromJson(response['user']);
+        print('AuthProvider: User object created successfully');
+      } catch (userError) {
+        print('AuthProvider: Error creating user from JSON: $userError');
+        print('AuthProvider: User JSON data: ${response['user']}');
+        throw Exception('Failed to parse user data: $userError');
+      }
 
       // Ensure token is saved to SharedPreferences
       if (_token != null) {

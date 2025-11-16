@@ -5,6 +5,7 @@ import '../../providers/recording_provider.dart';
 import '../../providers/websocket_provider.dart';
 import '../../utils/theme.dart';
 import '../auth/login_screen.dart';
+import 'emergency_emails_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -61,7 +62,7 @@ class ProfileScreen extends StatelessWidget {
                     ],
                   ),
                 ),
-        
+
                 // Profile Info Card
                 Container(
                   margin: const EdgeInsets.symmetric(horizontal: 20),
@@ -88,7 +89,8 @@ class ProfileScreen extends StatelessWidget {
                             backgroundColor:
                                 AppTheme.primaryColor.withOpacity(0.1),
                             child: Text(
-                              user?.fullName.substring(0, 1).toUpperCase() ?? 'U',
+                              user?.fullName.substring(0, 1).toUpperCase() ??
+                                  'U',
                               style: const TextStyle(
                                 fontSize: 36,
                                 fontWeight: FontWeight.bold,
@@ -96,9 +98,9 @@ class ProfileScreen extends StatelessWidget {
                               ),
                             ),
                           ),
-        
+
                           const SizedBox(height: 16),
-        
+
                           // Name
                           Text(
                             user?.fullName ?? 'User',
@@ -108,9 +110,9 @@ class ProfileScreen extends StatelessWidget {
                               color: Colors.black87,
                             ),
                           ),
-        
+
                           const SizedBox(height: 4),
-        
+
                           // Email
                           Text(
                             user?.email ?? '',
@@ -119,9 +121,9 @@ class ProfileScreen extends StatelessWidget {
                               color: Colors.grey.shade600,
                             ),
                           ),
-        
+
                           const SizedBox(height: 4),
-        
+
                           // Phone
                           Text(
                             user?.emergencyContact?.phone ?? '',
@@ -135,12 +137,11 @@ class ProfileScreen extends StatelessWidget {
                     },
                   ),
                 ),
-        
+
                 const SizedBox(height: 30),
-        
+
                 // Statistics Section
                 Container(
-                  
                   decoration: const BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.only(
@@ -161,9 +162,9 @@ class ProfileScreen extends StatelessWidget {
                             color: Colors.black87,
                           ),
                         ),
-                        
+
                         const SizedBox(height: 20),
-                        
+
                         // Stats Cards
                         Consumer<RecordingProvider>(
                           builder: (context, recordingProvider, child) {
@@ -171,7 +172,7 @@ class ProfileScreen extends StatelessWidget {
                             final emergencyCount = recordings
                                 .where((r) => r.isEmergency == true)
                                 .length;
-                        
+
                             return Column(
                               children: [
                                 _buildStatCard(
@@ -198,10 +199,33 @@ class ProfileScreen extends StatelessWidget {
                             );
                           },
                         ),
-                        
-                        // const Spacer(),
-                        
+
+                        const SizedBox(height: 20),
+
                         // Settings Options
+                        const Text(
+                          'Settings',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        _buildMenuItem(
+                          'Emergency Contact Emails',
+                          Icons.emergency_outlined,
+                          () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const EmergencyEmailsScreen(),
+                              ),
+                            );
+                          },
+                        ),
+
                         // _buildMenuItem(
                         //   'Settings',
                         //   Icons.settings_outlined,
@@ -209,7 +233,7 @@ class ProfileScreen extends StatelessWidget {
                         //     // Navigate to settings
                         //   },
                         // ),
-                        
+
                         // _buildMenuItem(
                         //   'Help & Support',
                         //   Icons.help_outline,
@@ -217,7 +241,7 @@ class ProfileScreen extends StatelessWidget {
                         //     // Navigate to help
                         //   },
                         // ),
-                        
+
                         // _buildMenuItem(
                         //   'Privacy Policy',
                         //   Icons.privacy_tip_outlined,
@@ -225,9 +249,9 @@ class ProfileScreen extends StatelessWidget {
                         //     // Navigate to privacy policy
                         //   },
                         // ),
-                        
+
                         const SizedBox(height: 20),
-                        
+
                         // Logout Button
                         SizedBox(
                           width: double.infinity,

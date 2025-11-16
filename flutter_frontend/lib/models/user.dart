@@ -10,6 +10,7 @@ class User {
   final String firstName;
   final String lastName;
   final EmergencyContact? emergencyContact;
+  final List<String>? emergencyEmails;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -19,6 +20,7 @@ class User {
     required this.firstName,
     required this.lastName,
     this.emergencyContact,
+    this.emergencyEmails,
     this.createdAt,
     this.updatedAt,
   });
