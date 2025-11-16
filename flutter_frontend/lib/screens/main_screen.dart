@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/websocket_provider.dart';
+import '../providers/keyword_detection_provider.dart';
 import '../utils/theme.dart';
 import 'home/home_screen.dart';
 import 'profile/profile_screen.dart';
@@ -14,7 +15,7 @@ class MainScreen extends StatefulWidget {
   State<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends State<MainScreen> {
+class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   int _currentIndex = 0;
   late PageController _pageController;
 
@@ -28,8 +29,11 @@ class _MainScreenState extends State<MainScreen> {
   void initState() {
     super.initState();
     _pageController = PageController();
+    
+    // Add lifecycle observer
+    WidgetsBinding.instance.addObserver(this);
 
-    // Initialize WebSocket connection
+    // Initialize WebSocket connection and keyword detection
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final authProvider = context.read<AuthProvider>();
       if (authProvider.isAuthenticated && authProvider.user != null) {
@@ -39,7 +43,55 @@ class _MainScreenState extends State<MainScreen> {
         // Listen for emergency alerts from WebSocket
         wsProvider.addListener(_onWebSocketUpdate);
       }
+      
+      // Check and reconnect keyword detection if needed
+      _checkAndReconnectKeywordDetection();
     });
+  }
+
+  @override
+  void dispose() {
+    // Remove lifecycle observer
+    WidgetsBinding.instance.removeObserver(this);
+    _pageController.dispose();
+
+    // Remove WebSocket listener to prevent memory leaks
+    try {
+      final wsProvider = context.read<WebSocketProvider>();
+      wsProvider.removeListener(_onWebSocketUpdate);
+    } catch (e) {
+      // Ignore errors if context is no longer available
+    }
+
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    
+    if (state == AppLifecycleState.resumed) {
+      // App is coming back to foreground, check keyword detection connection
+      _checkAndReconnectKeywordDetection();
+    }
+  }
+
+  Future<void> _checkAndReconnectKeywordDetection() async {
+    try {
+      final keywordProvider = context.read<KeywordDetectionProvider>();
+      
+      // Check if the native service is running but Flutter side is not connected
+      await keywordProvider.checkDetectionStatus();
+      
+      // If service is active but not listening through EventChannel, reconnect
+      if (keywordProvider.isDetectionActive && !keywordProvider.isListening) {
+        debugPrint('Detected service running but EventChannel disconnected. Reconnecting...');
+        // This will re-establish the EventChannel connection
+        await keywordProvider.checkDetectionStatus();
+      }
+    } catch (e) {
+      debugPrint('Error checking keyword detection status: $e');
+    }
   }
 
   void _onWebSocketUpdate() {
@@ -178,21 +230,6 @@ class _MainScreenState extends State<MainScreen> {
         );
       },
     );
-  }
-
-  @override
-  void dispose() {
-    _pageController.dispose();
-
-    // Remove WebSocket listener to prevent memory leaks
-    try {
-      final wsProvider = context.read<WebSocketProvider>();
-      wsProvider.removeListener(_onWebSocketUpdate);
-    } catch (e) {
-      // Ignore errors if context is no longer available
-    }
-
-    super.dispose();
   }
 
   void _onTabTapped(int index) {

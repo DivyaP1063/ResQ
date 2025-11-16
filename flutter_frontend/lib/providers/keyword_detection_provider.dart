@@ -8,6 +8,7 @@ class KeywordDetectionProvider extends ChangeNotifier {
   bool _isDetectionActive = false;
   bool _isListening = false;
   StreamSubscription<String>? _keywordSubscription;
+  Timer? _connectionCheckTimer;
   final AudioService _audioService = AudioService();
 
   /// Callback for when emergency is detected
@@ -23,6 +24,9 @@ class KeywordDetectionProvider extends ChangeNotifier {
     // Set up callback for emergency detection from background
     KeywordDetectionService.setEmergencyFromBackgroundCallback(
         _handleEmergencyFromBackground);
+    
+    // Start periodic connection check
+    _startConnectionCheck();
   }
 
   /// Handles emergency detected when app was closed
@@ -105,12 +109,19 @@ class KeywordDetectionProvider extends ChangeNotifier {
     }
   }
 
-  /// Checks the current status of keyword detection
+  /// Checks the current status of keyword detection and reconnects if needed
   Future<bool> checkDetectionStatus() async {
     try {
       final isRunning =
           await KeywordDetectionService.isKeywordDetectionRunning();
       _isDetectionActive = isRunning;
+      
+      // If service is running but we're not listening to the EventChannel, reconnect
+      if (isRunning && !_isListening) {
+        debugPrint('Service is running but EventChannel disconnected. Reconnecting...');
+        _startListening();
+      }
+      
       notifyListeners();
       return isRunning;
     } catch (e) {
@@ -212,8 +223,29 @@ class KeywordDetectionProvider extends ChangeNotifier {
     }
   }
 
+  /// Starts periodic connection check timer
+  void _startConnectionCheck() {
+    _connectionCheckTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+      _checkConnectionHealth();
+    });
+  }
+
+  /// Checks if EventChannel connection is healthy and reconnects if needed
+  Future<void> _checkConnectionHealth() async {
+    try {
+      // Only check if detection should be active
+      if (_isDetectionActive && !_isListening) {
+        debugPrint('Connection health check: EventChannel disconnected while service active. Reconnecting...');
+        _startListening();
+      }
+    } catch (e) {
+      debugPrint('Error during connection health check: $e');
+    }
+  }
+
   @override
   void dispose() {
+    _connectionCheckTimer?.cancel();
     _stopListening();
     super.dispose();
   }
