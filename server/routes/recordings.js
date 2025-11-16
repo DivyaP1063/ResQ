@@ -5,6 +5,7 @@ const fs = require("fs").promises;
 const { AssemblyAI } = require("assemblyai");
 const Recording = require("../models/Recording");
 const { analyzeForEmergency } = require("../utils/emergencyAnalysis");
+const emailService = require("../services/emailService");
 
 const router = express.Router();
 
@@ -146,6 +147,25 @@ router.post(
 
           await recording.save();
 
+          // Send emergency email if emergency is detected
+          if (emergencyAnalysis.isEmergency) {
+            try {
+              console.log("Emergency detected! Sending notification emails...");
+              const emailResult = await emailService.sendEmergencyAlert(req.user._id, {
+                transcription: simulatedTranscription,
+                type: emergencyAnalysis.type,
+                confidence: emergencyAnalysis.confidence,
+                keywords: emergencyAnalysis.keywords,
+                timestamp: recording.createdAt,
+                recordingId: recording._id
+              });
+              console.log("Emergency email notification result:", emailResult);
+            } catch (emailError) {
+              console.error("Failed to send emergency email:", emailError);
+              // Don't fail the request if email sending fails
+            }
+          }
+
           res.json({
             message: "Recording processed successfully (TEST MODE)",
             recording: {
@@ -211,6 +231,25 @@ router.post(
             recording.emergencyType = emergencyAnalysis.type;
             recording.confidence = emergencyAnalysis.confidence;
             recording.keywords = emergencyAnalysis.keywords;
+
+            // Send emergency email if emergency is detected
+            if (emergencyAnalysis.isEmergency) {
+              try {
+                console.log("Emergency detected! Sending notification emails...");
+                const emailResult = await emailService.sendEmergencyAlert(req.user._id, {
+                  transcription: transcript.text,
+                  type: emergencyAnalysis.type,
+                  confidence: emergencyAnalysis.confidence,
+                  keywords: emergencyAnalysis.keywords,
+                  timestamp: recording.createdAt,
+                  recordingId: recording._id
+                });
+                console.log("Emergency email notification result:", emailResult);
+              } catch (emailError) {
+                console.error("Failed to send emergency email:", emailError);
+                // Don't fail the request if email sending fails
+              }
+            }
           }
 
           await recording.save();

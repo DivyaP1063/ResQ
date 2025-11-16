@@ -2,19 +2,37 @@ const express = require('express');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const { authenticateToken } = require('../middleware/auth');
+const emailService = require('../services/emailService');
 
 const router = express.Router();
 
 // Register new user
 router.post('/register', async (req, res) => {
   try {
-    const { email, password, firstName, lastName, emergencyContact } = req.body;
+    const { email, password, firstName, lastName, emergencyContact, emergencyEmails } = req.body;
 
     // Validate required fields
     if (!email || !password || !firstName || !lastName) {
       return res.status(400).json({ 
         error: 'Email, password, first name, and last name are required' 
       });
+    }
+
+    // Validate emergency emails
+    if (!emergencyEmails || !Array.isArray(emergencyEmails) || emergencyEmails.length !== 3) {
+      return res.status(400).json({ 
+        error: 'Exactly 3 emergency email addresses are required' 
+      });
+    }
+
+    // Validate email format for each emergency email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    for (let i = 0; i < emergencyEmails.length; i++) {
+      if (!emailRegex.test(emergencyEmails[i])) {
+        return res.status(400).json({ 
+          error: `Emergency email ${i + 1} is not in valid format` 
+        });
+      }
     }
 
     // Check if user already exists
@@ -29,7 +47,8 @@ router.post('/register', async (req, res) => {
       password,
       firstName,
       lastName,
-      emergencyContact
+      emergencyContact,
+      emergencyEmails
     });
 
     await user.save();
@@ -123,6 +142,135 @@ router.put('/profile', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Profile update error:', error);
     res.status(500).json({ error: 'Failed to update profile' });
+  }
+});
+
+// Update emergency emails
+router.put('/emergency-emails', authenticateToken, async (req, res) => {
+  try {
+    const { emergencyEmails } = req.body;
+
+    // Validate emergency emails
+    if (!emergencyEmails || !Array.isArray(emergencyEmails) || emergencyEmails.length !== 3) {
+      return res.status(400).json({ 
+        error: 'Exactly 3 emergency email addresses are required' 
+      });
+    }
+
+    // Validate email format for each emergency email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    for (let i = 0; i < emergencyEmails.length; i++) {
+      if (!emailRegex.test(emergencyEmails[i])) {
+        return res.status(400).json({ 
+          error: `Emergency email ${i + 1} is not in valid format` 
+        });
+      }
+    }
+    
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { emergencyEmails },
+      { new: true, runValidators: true }
+    );
+    
+    res.json({
+      message: 'Emergency emails updated successfully',
+      user
+    });
+  } catch (error) {
+    console.error('Emergency emails update error:', error);
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({ error: error.message });
+    }
+    res.status(500).json({ error: 'Failed to update emergency emails' });
+  }
+});
+
+// Get emergency emails
+router.get('/emergency-emails', authenticateToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).select('emergencyEmails');
+    
+    res.json({
+      emergencyEmails: user.emergencyEmails || []
+    });
+  } catch (error) {
+    console.error('Get emergency emails error:', error);
+    res.status(500).json({ error: 'Failed to fetch emergency emails' });
+  }
+});
+
+// Test email functionality (for development/testing only)
+router.post('/test-email', authenticateToken, async (req, res) => {
+  try {
+    const user = req.user;
+    
+    console.log('User object:', JSON.stringify(user, null, 2));
+    console.log('User ID:', user._id);
+    console.log('Emergency emails:', user.emergencyEmails);
+    
+    if (!user.emergencyEmails || user.emergencyEmails.length === 0) {
+      return res.status(400).json({ 
+        error: 'No emergency emails configured for this user',
+        userInfo: {
+          id: user._id,
+          email: user.email,
+          name: user.firstName + ' ' + user.lastName
+        }
+      });
+    }
+
+    // Send test emergency email
+    await emailService.sendEmergencyAlert(user._id, {
+      transcription: 'Test emergency alert from Postman',
+      type: 'Test Alert',
+      confidence: 0.95,
+      keywords: ['test', 'emergency'],
+      location: 'Test Location',
+      timestamp: new Date().toISOString()
+    });
+
+    res.json({
+      message: 'Test emergency email sent successfully',
+      sentTo: user.emergencyEmails,
+      user: user.firstName + ' ' + user.lastName
+    });
+  } catch (error) {
+    console.error('Test email error:', error);
+    res.status(500).json({ 
+      error: 'Failed to send test email',
+      details: error.message 
+    });
+  }
+});
+
+// Simple email test (for debugging SMTP)
+router.post('/test-smtp', async (req, res) => {
+  try {
+    const { testEmail } = req.body || {};
+    
+    // Use a default test email if none provided
+    const emailToTest = testEmail || 'test@example.com';
+    
+    if (!emailToTest) {
+      return res.status(400).json({ 
+        error: 'testEmail is required in request body',
+        example: { testEmail: 'your-email@gmail.com' }
+      });
+    }
+
+    await emailService.sendTestEmail(emailToTest);
+    
+    res.json({
+      message: 'Test email sent successfully',
+      sentTo: emailToTest
+    });
+  } catch (error) {
+    console.error('SMTP test error:', error);
+    res.status(500).json({ 
+      error: 'Failed to send test email',
+      details: error.message 
+    });
   }
 });
 

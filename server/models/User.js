@@ -28,6 +28,18 @@ const userSchema = new mongoose.Schema({
     name: String,
     phone: String
   },
+  emergencyEmails: [{
+    type: String,
+    required: true,
+    lowercase: true,
+    trim: true,
+    validate: {
+      validator: function(email) {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+      },
+      message: 'Please enter a valid email address'
+    }
+  }],
   isActive: {
     type: Boolean,
     default: true
@@ -39,6 +51,11 @@ const userSchema = new mongoose.Schema({
 }, {
   timestamps: true
 });
+
+// Validate that exactly 3 emergency emails are provided
+userSchema.path('emergencyEmails').validate(function(emails) {
+  return emails && emails.length === 3;
+}, 'Exactly 3 emergency email addresses are required');
 
 // Hash password before saving
 userSchema.pre('save', async function(next) {
