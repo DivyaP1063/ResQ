@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/recording_provider.dart';
 import 'providers/websocket_provider.dart';
+import 'providers/keyword_detection_provider.dart';
 import 'screens/splash_screen.dart';
 import 'services/api_service.dart';
 import 'utils/constants.dart';
@@ -24,6 +25,7 @@ class ResQApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => RecordingProvider()),
         ChangeNotifierProvider(create: (_) => WebSocketProvider()),
+        ChangeNotifierProvider(create: (_) => KeywordDetectionProvider()),
       ],
       child: MaterialApp(
         title: AppConstants.appName,

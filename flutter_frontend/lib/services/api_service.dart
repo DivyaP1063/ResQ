@@ -53,6 +53,10 @@ class ApiService {
   // Auth API Methods
   Future<Map<String, dynamic>> login(String email, String password) async {
     try {
+      print('ApiService: Attempting login for $email');
+      print(
+          'ApiService: Sending request to ${AppConstants.baseUrl}${AppConstants.loginEndpoint}');
+
       final response = await _dio.post(
         AppConstants.loginEndpoint,
         data: {
@@ -61,16 +65,28 @@ class ApiService {
         },
       );
 
+      print('ApiService: Login response status: ${response.statusCode}');
+      print('ApiService: Login response data: ${response.data}');
+
       final token = response.data['token'];
       if (token != null) {
         setToken(token);
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString(AppConstants.tokenKey, token);
+        print('ApiService: Token saved successfully');
+      } else {
+        print('ApiService: No token found in response');
       }
 
       return response.data;
     } on DioException catch (e) {
+      print('ApiService: Login DioException: $e');
+      print('ApiService: Login error response: ${e.response?.data}');
+      print('ApiService: Login error status: ${e.response?.statusCode}');
       throw _handleError(e);
+    } catch (e) {
+      print('ApiService: Login unexpected error: $e');
+      throw 'Unexpected error during login: $e';
     }
   }
 

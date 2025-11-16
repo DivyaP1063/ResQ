@@ -6,6 +6,7 @@ import '../../providers/websocket_provider.dart';
 import '../../utils/theme.dart';
 import '../auth/login_screen.dart';
 import 'emergency_emails_screen.dart';
+import '../settings/keyword_detection_settings_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -221,6 +222,19 @@ class ProfileScreen extends StatelessWidget {
                             Navigator.of(context).push(
                               MaterialPageRoute(
                                 builder: (_) => const EmergencyEmailsScreen(),
+                              ),
+                            );
+                          },
+                        ),
+
+                        _buildMenuItem(
+                          'Keyword Detection Settings',
+                          Icons.mic_external_on,
+                          () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    const KeywordDetectionSettingsScreen(),
                               ),
                             );
                           },
