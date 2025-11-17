@@ -603,7 +603,7 @@ class KeywordDetectionService : Service() {
                 .build()
             
             val request = Request.Builder()
-                .url("http://192.168.125.141:5000/api/recordings/upload") // Match Flutter config
+                .url("https://resq-qbiz.onrender.com/api/recordings/upload") // Match Flutter config
                 .post(requestBody)
                 .apply {
                     if (token != null && token.trim().isNotEmpty()) {
