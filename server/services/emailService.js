@@ -20,19 +20,19 @@ class EmailService {
     }
 
     return nodemailer.createTransport({
-      service: process.env.EMAIL_SERVICE || 'gmail',
+      host: 'smtp.gmail.com',
+      port: 587,
+      secure: false, // true for 465, false for other ports
       auth: {
         user: process.env.EMAIL_USER, // Your email address
         pass: process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS, // Your email password or app password
       },
-      // Alternative configuration for custom SMTP
-      // host: process.env.SMTP_HOST,
-      // port: process.env.SMTP_PORT || 587,
-      // secure: false, // true for 465, false for other ports
-      // auth: {
-      //   user: process.env.EMAIL_USER,
-      //   pass: process.env.EMAIL_PASS,
-      // },
+      tls: {
+        rejectUnauthorized: false // Accept self-signed certificates
+      },
+      connectionTimeout: 60000, // 60 seconds
+      greetingTimeout: 30000, // 30 seconds
+      socketTimeout: 60000, // 60 seconds
     });
   }
 

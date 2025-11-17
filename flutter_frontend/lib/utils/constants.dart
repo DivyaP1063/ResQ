@@ -4,12 +4,12 @@ class AppConstants {
 
   // API Configuration
   static const String baseUrl =
-      'http://10.88.25.141:5000/api'; // Your local server IP on port 5000
+      'http://192.168.125.141:5000/api'; // Your local server IP on port 5000
   // For Android emulator, use: 'http://10.0.2.2:5000/api'
   // For localhost testing: 'http://localhost:5000/api'
   // Remote server: 'https://resq-qbiz.onrender.com/api'
   static const String wsUrl =
-      'ws://10.88.25.141:5000'; // Your local WebSocket IP on port 5000
+      'ws://192.168.125.141:5000'; // Your local WebSocket IP on port 5000
 
   //   static const String baseUrl = 'https://resq-qbiz.onrender.com/api'; // Android emulator
   // // For physical device, use: 'http://YOUR_LOCAL_IP:5000/api'
