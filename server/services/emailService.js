@@ -19,10 +19,10 @@ class EmailService {
       throw new Error('Email credentials not found in environment variables');
     }
 
-    return nodemailer.createTransporter({
+    return nodemailer.createTransport({
       host: 'smtp.gmail.com',
-      port: 465, // Use SSL port instead of STARTTLS
-      secure: true, // Use SSL
+      port: 587,
+      secure: false, // true for 465, false for other ports
       auth: {
         user: process.env.EMAIL_USER, // Your email address
         pass: process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS, // Your email password or app password
@@ -30,12 +30,9 @@ class EmailService {
       tls: {
         rejectUnauthorized: false // Accept self-signed certificates
       },
-      connectionTimeout: 10000, // 10 seconds (reduced)
-      greetingTimeout: 10000, // 10 seconds (reduced)
-      socketTimeout: 10000, // 10 seconds (reduced)
-      pool: true, // Use connection pooling
-      maxConnections: 5,
-      maxMessages: 100,
+      connectionTimeout: 60000, // 60 seconds
+      greetingTimeout: 30000, // 30 seconds
+      socketTimeout: 60000, // 60 seconds
     });
   }
 
